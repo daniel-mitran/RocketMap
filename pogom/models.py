@@ -396,6 +396,46 @@ class Pokemon(BaseModel):
         return list(spawnpoints.values())
 
     @classmethod
+    def get_pokemons_nearby(cls, center, timestamp):
+
+        # Maximum distance, where we see pokemons nearby
+        visible_distance = 200
+
+        # Get box of visible distance
+        start = geopy.distance.distance(meters=visible_distance)
+        sw = start.destination(center, 225).format_decimal()
+        sw = [float(s) for s in sw.split(',')]
+        ne = start.destination(center, 45).format_decimal()
+        ne = [float(s) for s in ne.split(',')]
+
+        swLat = sw[0]
+        swLng = sw[1]
+        neLat = ne[0]
+        neLng = ne[1]
+
+        # Get active pokemons on those borders
+        query = (Pokemon
+                 .select(Pokemon.latitude.alias('lat'),
+                         Pokemon.longitude.alias('lng'),
+                         Pokemon.pokemon_id)
+                 .where((Pokemon.disappear_time >= timestamp) &
+                        ((Pokemon.latitude >= swLat) &
+                         (Pokemon.longitude >= swLng) &
+                         (Pokemon.latitude <= neLat) &
+                         (Pokemon.longitude <= neLng)))
+                 .dicts())
+        p = list(query)
+
+        # Remove pokemons outside visible circle
+        pokemons = []
+        for idx, sp in enumerate(p):
+            if geopy.distance.distance(
+                    center, (sp['lat'], sp['lng'])).meters <= visible_distance:
+                pokemons.append(p[idx]['pokemon_id'])
+
+        return pokemons
+
+    @classmethod
     def get_spawnpoints_in_hex(cls, center, steps):
         log.info('Finding spawnpoints {} steps away.'.format(steps))
 
@@ -1878,14 +1918,9 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
         seen_ids += [b64encode(str(p['encounter_id']))
                     for p in wild_pokemon]
 
-        query = (Pokemon
-                 .select(Pokemon.pokemon_id)
-                 .where((Pokemon.disappear_time >= now_date) &
-                        (Pokemon.encounter_id << seen_ids))
-                 .dicts())        
-        encountered_pokemon_ids = [
-            p['pokemon_id'] for p in query]
         print("Encountered IDs: " + str(len(encountered_pokemon)) + " / " + str(len(encountered_pokemon_ids)))
+        # Get nearby active pokemons from database
+        encountered_pokemon_ids = Pokemon.get_pokemons_nearby(step_location, now_date)
 
         # Create list of present pokemon IDs for blinded check        
         for p in nearby_pokemon:
