@@ -1832,25 +1832,9 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
     captcha_url = ''
     missed = []
     # there must be a better way...
-    # Common: 16, 19, 27, 29, 32, 41, 43, 46, 52, 54, 60, 69, 72, 74, 98, 118,
-    #         120, 129, 161, 165, 167, 177, 183, 187, 194, 198, 209, 218
-    rare_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 20,
-                21, 22, 23, 24, 25, 26, 28, 30, 31, 33, 34, 35, 36, 37, 38, 39,
-                40, 42, 44, 45, 47, 48, 49, 50, 51, 53, 55, 56, 57, 58, 59, 61,
-                62, 63, 64, 65, 66, 67, 68, 70, 71, 73, 75, 76, 77, 78, 79, 80,
-                81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96,
-                97, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110,
-                111, 112, 113, 114, 115, 116, 117, 119, 121, 122, 123, 124,
-                125, 126, 127, 128, 130, 131, 132, 133, 134, 135, 136, 137,
-                138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149,
-                150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 162,
-                163, 164, 166, 168, 169, 170, 171, 172, 173, 174, 175, 176,
-                178, 179, 180, 181, 182, 184, 185, 186, 188, 189, 190, 191,
-                192, 193, 195, 196, 197, 199, 200, 201, 202, 203, 204, 205,
-                206, 207, 208, 210, 211, 212, 213, 214, 215, 216, 217, 219,
-                220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231,
-                232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243,
-                244, 245, 246, 247, 248, 249]
+    common_ids = [16, 19, 27, 29, 32, 41, 43, 46, 52, 54, 60, 69, 72,
+                  74, 81, 98, 118, 120, 129, 161, 165, 167, 177, 183,
+                  187, 194, 198, 209, 218]
 
     # Consolidate the individual lists in each cell into two lists of Pokemon
     # and a list of forts.
@@ -1919,10 +1903,11 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
         for p in nearby_pokemon:
             nearby_pokemon_ids.append(p.get('pokemon_id', 0))
         for p in wild_pokemon:
-            nearby_pokemon_ids.append(p.get('pokemon_id', 0))
+            nearby_pokemon_ids.append(p.get('pokemon_data', {})
+                                      .get('pokemon_id', 0))
 
         # Remove common pokemons from seen
-        rare_finds = [p for p in nearby_pokemon_ids if p in rare_ids]
+        rare_finds = [p for p in nearby_pokemon_ids if p not in common_ids]
 
         # Checking if found only common pokemons
         if len(rare_finds) == 0:
@@ -1931,12 +1916,14 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                 step_location, now_date)
 
             for p in encountered_pokemon_ids:
-                if ((p not in nearby_pokemon_ids) and (p in rare_ids)):
+                if ((p not in nearby_pokemon_ids) and (p not in common_ids)):
                     missed.append(p)
+
             if missed:
-                log.warning('''
-                    Account %s could not find pokemon IDs: %s, possible blind.
-                    ''' % (account['username'], missed))
+                log.warning('Account %s could not find pokemon IDs: %s'
+                            % (account['username'], missed))
+                log.warning('Account %s possibly blinded!'
+                            % account['username'])
 
     if wild_pokemon and config['parse_pokemon']:
         encounter_ids = [b64encode(str(p['encounter_id']))
