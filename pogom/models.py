@@ -1915,16 +1915,6 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
     # Checking if account is blinded
     if (nearby_pokemon or wild_pokemon) and config['parse_pokemon']:
 
-        # Get all pokemons found around for blinded check
-        seen_ids = [b64encode(str(p['encounter_id']))
-                    for p in nearby_pokemon]
-        seen_ids += [b64encode(str(p['encounter_id']))
-                     for p in wild_pokemon]
-
-        # Get nearby active pokemons from database
-        encountered_pokemon_ids = Pokemon.get_pokemons_nearby(
-            step_location, now_date)
-
         # Create list of present pokemon IDs for blinded check
         for p in nearby_pokemon:
             nearby_pokemon_ids.append(p.get('pokemon_id', 0))
@@ -1936,12 +1926,16 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
 
         # Checking if found only common pokemons
         if len(rare_finds) == 0:
+            # Get nearby active pokemons from database
+            encountered_pokemon_ids = Pokemon.get_pokemons_nearby(
+                step_location, now_date)
+
             for p in encountered_pokemon_ids:
                 if ((p not in nearby_pokemon_ids) and (p in rare_ids)):
                     missed.append(p)
             if missed:
                 log.warning('''
-                    Account %s could not find pokemon IDs: %s, possible blind
+                    Account %s could not find pokemon IDs: %s, possible blind.
                     ''' % (account['username'], missed))
 
     if wild_pokemon and config['parse_pokemon']:
