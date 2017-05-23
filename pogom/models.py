@@ -1830,6 +1830,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
     new_spawn_points = []
     sp_id_list = []
     captcha_url = ''
+    missed = []
     # there must be a better way...
     # Common: 16, 19, 27, 29, 32, 41, 43, 46, 52, 54, 60, 69, 72, 74, 98, 118, 120, 129, 161, 165, 167, 177, 183, 187, 194, 198, 209, 218
     rare_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 20,
@@ -1911,14 +1912,12 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
     # Checking if account is blinded
     if (nearby_pokemon or wild_pokemon) and config['parse_pokemon']:
 
-        print("Account: " + str(account['username']))
         # Get all pokemons found around for blinded check
         seen_ids = [b64encode(str(p['encounter_id']))
                     for p in nearby_pokemon]
         seen_ids += [b64encode(str(p['encounter_id']))
                     for p in wild_pokemon]
 
-        print("Encountered IDs: " + str(len(encountered_pokemon)) + " / " + str(len(encountered_pokemon_ids)))
         # Get nearby active pokemons from database
         encountered_pokemon_ids = Pokemon.get_pokemons_nearby(step_location, now_date)
 
@@ -1930,17 +1929,14 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
         
         # Remove common pokemons from seen
         rare_finds = [p for p in nearby_pokemon_ids if p in rare_ids]
-        print("Nearby / rare finds: " + str(len(nearby_pokemon_ids)) + " / " + str(len(rare_finds)))
-        print("Rare finds: " + str(rare_finds))
-        print("Unique finds: " + str(set(nearby_pokemon_ids)))
-        
+
         # Checking if found only common pokemons
         if len(rare_finds) == 0:
-            print("Checking for blindfold.")
             for p in encountered_pokemon_ids:
-                print("Checking ID: " + str(p))
                 if ((p not in nearby_pokemon_ids) and (p in rare_ids)):
-                    print("BLINDED on: " + str(p))
+                    missed.append(p)
+            if missed:
+                log.warning('Account %s could not find pokemon IDs: %s, possible blind' % (account['username'], missed))
 
     if wild_pokemon and config['parse_pokemon']:
         encounter_ids = [b64encode(str(p['encounter_id']))
