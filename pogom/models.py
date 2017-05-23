@@ -1777,15 +1777,36 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
     stopsskipped = 0
     forts = []
     forts_count = 0
+    encountered_pokemon = []
+    encountered_pokemon_ids = []
     wild_pokemon = []
     wild_pokemon_count = 0
-    nearby_pokemon = 0
+    nearby_pokemon = []
+    nearby_pokemon_ids = []
+    nearby_pokemon_count = 0
     spawn_points = {}
     scan_spawn_points = {}
     sightings = {}
     new_spawn_points = []
     sp_id_list = []
     captcha_url = ''
+    # there must be a better way...
+    # Common: 16, 19, 27, 29, 32, 41, 43, 46, 52, 54, 60, 69, 72, 74, 98, 118, 120, 129, 161, 165, 167, 177, 183, 187, 194, 198, 209, 218
+    rare_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 20,
+                21, 22, 23, 24, 25, 26, 28, 30, 31, 33, 34, 35, 36, 37, 38, 39,
+                40, 42, 44, 45, 47, 48, 49, 50, 51, 53, 55, 56, 57, 58,
+                59, 61, 62, 63, 64, 65, 66, 67, 68, 70, 71, 73, 75, 76, 77,
+                78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96,
+                97, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112,
+                113, 114, 115, 116, 117, 119, 121, 122, 123, 124, 125, 126, 127,
+                128, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143,
+                144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158,
+                159, 160, 162, 163, 164, 166, 168, 169, 170, 171, 172, 173,
+                174, 175, 176, 178, 179, 180, 181, 182, 184, 185, 186, 188,
+                189, 190, 191, 192, 193, 195, 196, 197, 199, 200, 201, 202, 203,
+                204, 205, 206, 207, 208, 210, 211, 212, 213, 214, 215, 216, 217,
+                219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233,
+                234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249]
 
     # Consolidate the individual lists in each cell into two lists of Pokemon
     # and a list of forts.
@@ -1805,13 +1826,14 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
             now_date = datetime.utcfromtimestamp(
                 cell['current_timestamp_ms'] / 1000)
 
-        nearby_pokemon += len(cell.get('nearby_pokemons', []))
+        nearby_pokemon_count += len(cell.get('nearby_pokemons', []))
         # Parse everything for stats (counts).  Future enhancement -- we don't
         # necessarily need to know *how many* forts/wild/nearby were found but
         # we'd like to know whether or not *any* were found to help determine
         # if a scan was actually bad.
         if config['parse_pokemon']:
             wild_pokemon += cell.get('wild_pokemons', [])
+            nearby_pokemon += cell.get('nearby_pokemons', [])
 
         if config['parse_pokestops'] or config['parse_gyms']:
             forts += cell.get('forts', [])
@@ -1830,7 +1852,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
     del map_dict['responses']['GET_MAP_OBJECTS']
 
     # If there are no wild or nearby Pokemon . . .
-    if not wild_pokemon and not nearby_pokemon:
+    if not wild_pokemon and not nearby_pokemon_count:
         # . . . and there are no gyms/pokestops then it's unusable/bad.
         if not forts:
             log.warning('Bad scan. Parsing found absolutely nothing.')
@@ -1845,6 +1867,45 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
     done_already = scan_loc['done']
     ScannedLocation.update_band(scan_loc, now_date)
     just_completed = not done_already and scan_loc['done']
+
+    # Checking if account is blinded
+    if (nearby_pokemon or wild_pokemon) and config['parse_pokemon']:
+
+        print("Account: " + str(account['username']))
+        # Get all pokemons found around for blinded check
+        seen_ids = [b64encode(str(p['encounter_id']))
+                    for p in nearby_pokemon]
+        seen_ids += [b64encode(str(p['encounter_id']))
+                    for p in wild_pokemon]
+
+        query = (Pokemon
+                 .select(Pokemon.pokemon_id)
+                 .where((Pokemon.disappear_time >= now_date) &
+                        (Pokemon.encounter_id << seen_ids))
+                 .dicts())        
+        encountered_pokemon_ids = [
+            p['pokemon_id'] for p in query]
+        print("Encountered IDs: " + str(len(encountered_pokemon)) + " / " + str(len(encountered_pokemon_ids)))
+
+        # Create list of present pokemon IDs for blinded check        
+        for p in nearby_pokemon:
+            nearby_pokemon_ids.append(p.get('pokemon_id', 0))
+        for p in wild_pokemon:
+            nearby_pokemon_ids.append(p.get('pokemon_id', 0))
+        
+        # Remove common pokemons from seen
+        rare_finds = [p for p in nearby_pokemon_ids if p in rare_ids]
+        print("Nearby / rare finds: " + str(len(nearby_pokemon_ids)) + " / " + str(len(rare_finds)))
+        print("Rare finds: " + str(rare_finds))
+        print("Unique finds: " + str(set(nearby_pokemon_ids)))
+        
+        # Checking if found only common pokemons
+        if len(rare_finds) == 0:
+            print("Checking for blindfold.")
+            for p in encountered_pokemon_ids:
+                print("Checking ID: " + str(p))
+                if ((p not in nearby_pokemon_ids) and (p in rare_ids)):
+                    print("BLINDED on: " + str(p))
 
     if wild_pokemon and config['parse_pokemon']:
         encounter_ids = [b64encode(str(p['encounter_id']))
@@ -2266,7 +2327,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
 
     log.info('Parsing found Pokemon: %d, nearby: %d, pokestops: %d, gyms: %d.',
              len(pokemon) + skipped,
-             nearby_pokemon,
+             nearby_pokemon_count,
              len(pokestops) + stopsskipped,
              len(gyms))
 
@@ -2326,7 +2387,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
         if sightings:
             db_update_queue.put((SpawnpointDetectionData, sightings))
 
-    if not nearby_pokemon and not wild_pokemon:
+    if not nearby_pokemon_count and not wild_pokemon:
         # After parsing the forts, we'll mark this scan as bad due to
         # a possible speed violation.
         return {
