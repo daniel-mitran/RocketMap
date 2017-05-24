@@ -45,6 +45,12 @@ cache = TTLCache(maxsize=100, ttl=60 * 5)
 db_schema_version = 19
 
 
+class Shadowbanned(Exception):
+    def __init__(self, account, missed_ids):
+        self.account = account
+        self.missed_ids = missed_ids
+
+
 class MyRetryDB(RetryOperationalError, PooledMySQLDatabase):
     pass
 
@@ -1920,10 +1926,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                     missed.append(p)
 
             if missed:
-                log.warning('Account %s could not find pokemon IDs: %s'
-                            % (account['username'], missed))
-                log.warning('Account %s possibly blinded!'
-                            % account['username'])
+                raise Shadowbanned(account, missed)
 
     if wild_pokemon and config['parse_pokemon']:
         encounter_ids = [b64encode(str(p['encounter_id']))

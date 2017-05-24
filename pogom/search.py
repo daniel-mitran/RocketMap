@@ -44,7 +44,7 @@ from pgoapi import utilities as util
 from pgoapi.hash_server import (HashServer, BadHashRequestException,
                                 HashingOfflineException)
 from .models import (parse_map, GymDetails, parse_gyms, MainWorker,
-                     WorkerStatus, HashKeys)
+                     WorkerStatus, HashKeys, Shadowbanned)
 from .utils import now, clear_dict_response
 from .transform import get_new_coords, jitter_location
 from .account import (setup_api, check_login, get_tutorial_state,
@@ -1012,6 +1012,20 @@ def search_worker_thread(args, account_queue, account_sets, account_failures,
                         step_location[0], step_location[1],
                         parsed['count'])
                     log.debug(status['message'])
+
+                except Shadowbanned as e:
+                    status['message'] = (
+                        'Account {} could not find pokemon ID: {}. ' +
+                        'Possibly shadowbanned, switching accounts... '
+                        ).format(e.account['username'], e.missed_ids)
+                    log.warning(status['message'])
+                    account_failures.append({'account': account,
+                                             'last_fail_time': now(),
+                                             'reason': 'shadowbanned'})
+                    # Exit this loop to get a new account and have the API
+                    # recreated.
+                    break
+
                 except Exception as e:
                     parsed = False
                     status['fail'] += 1
