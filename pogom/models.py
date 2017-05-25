@@ -2377,8 +2377,8 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                             sp['kind'], sp['id'], sp['missed_count'])
                 log.info('Possible causes: Still doing initial scan, super'
                          ' rare double spawnpoint during')
-                log.info('hidden period, or Niantic has removed '
-                         'spawnpoint.')
+                log.info('hidden period, Niantic has removed '
+                         'spawnpoint or shadowbanned account.')
 
         if (not SpawnPoint.tth_found(sp) and scan_loc['done'] and
                 (now_secs - sp['latest_seen'] -
