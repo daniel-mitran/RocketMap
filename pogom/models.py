@@ -46,9 +46,10 @@ db_schema_version = 19
 
 
 class Shadowbanned(Exception):
-    def __init__(self, account, missed_ids):
+    def __init__(self, account, missed_ids=[], final=False):
         self.account = account
         self.missed_ids = missed_ids
+        self.final = final
 
 
 class MyRetryDB(RetryOperationalError, PooledMySQLDatabase):
@@ -1837,7 +1838,6 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
     sp_id_list = []
     captcha_url = ''
     missed = []
-    # there must be a better way...
     common_ids = [16, 19, 23, 27, 29, 32, 41, 43, 46, 52, 54, 60, 69,
                   72, 74, 81, 98, 118, 120, 129, 161, 165, 167, 177,
                   183, 187, 191, 194, 198, 209, 218]
@@ -1926,7 +1926,14 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                     missed.append(p)
 
             if missed:
-                raise Shadowbanned(account, missed)
+                raise Shadowbanned(account, missed, True)
+
+            status['nonrares'] += 1
+            if status['nonrares'] >= 20:
+                raise Shadowbanned(account)
+        # reset counter if rares are found
+        else:
+            status['nonrares'] = 0
 
     if wild_pokemon and config['parse_pokemon']:
         encounter_ids = [b64encode(str(p['encounter_id']))

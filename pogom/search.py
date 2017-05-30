@@ -794,6 +794,7 @@ def search_worker_thread(args, account_queue, account_sets, account_failures,
             status['noitems'] = 0
             status['skip'] = 0
             status['captcha'] = 0
+            status['nonrares'] = 0
 
             stagger_thread(args)
 
@@ -1014,15 +1015,33 @@ def search_worker_thread(args, account_queue, account_sets, account_failures,
                     log.debug(status['message'])
 
                 except Shadowbanned as e:
-                    status['message'] = (
-                        'Account %s could not find pokemon ID: %s. ' +
-                        'Possibly shadowbanned, switching accounts... ',
-                        e.account['username'], e.missed_ids)
+                    if e.missed_ids:
+                        log.warning(
+                            'Account %s could not find pokemon ID: %s. ' +
+                            'Possibly shadowbanned, switching accounts... ',
+                            e.account['username'], e.missed_ids)
+                    else:
+                        log.warning(
+                            'Account %s could not find rare pokemons ' +
+                            '%s times in a row. Possibly shadowbanned, ' +
+                            'switching accounts... ',
+                            e.account['username'], status['nonrares'])
 
-                    log.warning(status['message'])
+                    sb_time = now()
+                    # Write into file if we are 100% sure of shadowban
+                    if e.final:
+                        with open('accounts_shadowbanned.csv', 'a') as sb_file:
+                            sb_file.write('{},{},{}\n'.format(
+                                account['auth_service'],
+                                account['username'],
+                                account['password']))
+                        # Add some more time for the account to rest
+                        sb_time += 86400
+
                     account_failures.append({'account': account,
-                                             'last_fail_time': now(),
+                                             'last_fail_time': sb_time,
                                              'reason': 'shadowbanned'})
+
                     # Exit this loop to get a new account and have the API
                     # recreated.
                     break
