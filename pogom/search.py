@@ -1030,11 +1030,13 @@ def search_worker_thread(args, account_queue, account_sets, account_failures,
                     sb_time = now()
                     # Write into file if we are 100% sure of shadowban
                     if e.final:
-                        with open('accounts_shadowbanned.csv', 'a') as sb_file:
-                            sb_file.write('{},{},{}\n'.format(
-                                account['auth_service'],
-                                account['username'],
-                                account['password']))
+                        with open('acc_shadowbanned.csv', 'a+') as sb_file:
+                            if not any(account['username'] in x.rstrip('\n')
+                                       for x in sb_file):
+                                sb_file.write('{},{},{}\n'.format(
+                                    account['auth_service'],
+                                    account['username'],
+                                    account['password']))
                         # Add some more time for the account to rest
                         sb_time += 86400
 
