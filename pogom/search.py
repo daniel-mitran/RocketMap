@@ -1018,7 +1018,7 @@ def search_worker_thread(args, account_queue, account_sets, account_failures,
                     if e.missed_ids:
                         log.warning(
                             'Account %s could not find pokemon ID: %s. ' +
-                            'Possibly shadowbanned, switching accounts... ',
+                            'Shadowbanned, switching accounts... ',
                             e.account['username'], e.missed_ids)
                     else:
                         log.warning(
