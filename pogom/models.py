@@ -1177,6 +1177,7 @@ class WorkerStatus(BaseModel):
     last_scan_date = DateTimeField(index=True)
     latitude = DoubleField(null=True)
     longitude = DoubleField(null=True)
+    blind = BooleanField(null=True)
 
     @staticmethod
     def db_format(status, name='status_worker_db'):
@@ -1187,6 +1188,7 @@ class WorkerStatus(BaseModel):
                 'fail': status['fail'],
                 'no_items': status['noitems'],
                 'skip': status['skip'],
+                'blind': status['blind'],
                 'captcha': status['captcha'],
                 'last_modified': datetime.utcnow(),
                 'message': status['message'],
@@ -1227,6 +1229,7 @@ class WorkerStatus(BaseModel):
                     'fail': 0,
                     'no_items': 0,
                     'skip': 0,
+                    'blind': false,
                     'last_modified': datetime.utcnow(),
                     'message': 'New account {} loaded'.format(username),
                     'last_scan_date': datetime.utcnow(),
