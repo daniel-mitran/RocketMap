@@ -1039,7 +1039,8 @@ def search_worker_thread(args, account_queue, account_sets, account_failures,
                                     account['password']))
                         # Add some more time for the account to rest
                         sb_time += 86400
-
+                    
+                    account['blind'] = true
                     account_failures.append({'account': account,
                                              'last_fail_time': sb_time,
                                              'reason': 'shadowbanned'})
