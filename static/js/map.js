@@ -1690,11 +1690,12 @@ function processGym(i, item) {
             }
         }
 
-        if (raidLevel > Store.get('showRaidMaxLevel') || raidLevel < Store.get('showRaidMinLevel')) {
+        if (Store.get('showRaidPokemon') > 0 && raidPokemon != Store.get('showRaidPokemon')) {
             removeGymFromMap(item['gym_id'])
             return true
         }
-        if (Store.get('showRaidPokemon') > 0 && raidPokemon != Store.get('showRaidPokemon')) {
+        
+        if (raidLevel > Store.get('showRaidMaxLevel') || raidLevel < Store.get('showRaidMinLevel')) {
             removeGymFromMap(item['gym_id'])
             return true
         }
