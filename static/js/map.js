@@ -913,7 +913,7 @@ function getRaidPokemon(raid) {
     if (raid === null) {
         return 0
     } else {
-        return raid['pokemon']
+        return raid['pokemon_id']
     }
 }
 function lpad(str, len, padstr) {
